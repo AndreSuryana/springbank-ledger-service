@@ -301,13 +301,27 @@ components:
 
     ErrorResponse:
       type: object
+      required: [error_code, message]
       properties:
         error_code:
-          type: string
+          type: integer
+          description: |
+            Numeric domain error code.
+
+            Error code ranges:
+            - 1000-1099: Generic / validation errors
+            - 2000-2099: Account-related errors
+            - 3000-3099: Transaction / ledger errors
+            - 4000-4099: Idempotency & conflict errors
+            - 9000-9099: Internal / unexpected errors
+          example: 2003
         message:
           type: string
+          description: Human-readable error message
+          example: Account has insufficient balance
         request_id:
           type: string
+          description: Optional request identifier for tracing
 
   responses:
     BadRequest:
@@ -323,3 +337,14 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+
+  x-error-codes:
+    1001: Invalid request
+    1002: Currency mismatch
+    2001: Account not found
+    2002: Account inactive
+    2003: Insufficient funds
+    3001: Unbalanced transaction
+    3002: Invalid ledger entry
+    4001: Duplicate idempotency key
+    9001: Internal ledger error
