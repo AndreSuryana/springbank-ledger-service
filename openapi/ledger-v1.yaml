@@ -78,6 +78,25 @@ paths:
           in: query
           schema:
             type: string
+      responses:
+        "200":
+          description: Transaction history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountTransactionList"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /ledger/transactions:
     post:
@@ -198,6 +217,30 @@ components:
         created_at:
           type: string
           format: date-time
+
+    AccountTransactionList:
+      type: object
+      properties:
+        account_id:
+          type: string
+        transactions:
+          type: array
+          items:
+            type: object
+            properties:
+              transaction_id:
+                type: string
+              amount:
+                type: integer
+              currency:
+                type: string
+              description:
+                type: string
+              posted_at:
+                type: string
+                format: date-time
+        next_cursor:
+          type: string
 
     PostTransactionRequest:
       type: object
