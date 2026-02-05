@@ -1,0 +1,282 @@
+openapi: 3.1.1
+info:
+  title: Ledger Service API
+  description: >
+    Core ledger service responsible for posting financial transactions,
+    maintaining immutable ledger entries, and exposing account balances.
+  version: 1.0.0
+  contact:
+    email: Andresuryana17@gmail.com
+
+servers:
+  - url: https://ledger.internal/api/v1
+
+tags:
+  - name: Accounts
+    description: Financial accounts managed by the ledger
+  - name: Transactions
+    description: Posting and managing ledger transactions
+
+paths:
+  /ledger/accounts:
+    post:
+      tags: [Accounts]
+      summary: Create financial account
+      operationId: createAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /ledger/accounts/{account_id}/balance:
+    get:
+      tags: [Accounts]
+      summary: Get current account balance
+      operationId: getAccountBalance
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+      responses:
+        "200":
+          description: Account balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalance"
+
+  /ledger/accounts/{account_id}/transactions:
+    get:
+      tags: [Accounts]
+      summary: Get transaction history for an account
+      operationId: getAccountTransactions
+      parameters:
+        - $ref: "#/components/parameters/AccountId"
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: cursor
+          in: query
+          schema:
+            type: string
+
+  /ledger/transactions:
+    post:
+      tags: [Transactions]
+      summary: Post financial transaction
+      operationId: postTransaction
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostTransactionRequest"
+      responses:
+        "201":
+          description: Transaction posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /ledger/transactions/{transaction_id}/reversal:
+    post:
+      tags: [Transactions]
+      summary: Reverse a transaction
+      operationId: reverseTransaction
+      parameters:
+        - $ref: "#/components/parameters/TransactionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReversalRequest"
+      responses:
+        "201":
+          description: Reversal transaction posted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionResponse"
+
+  /ledger/transactions/{transaction_id}:
+    get:
+      tags: [Transactions]
+      summary: Get transaction details
+      operationId: getTransaction
+      parameters:
+        - $ref: "#/components/parameters/TransactionId"
+
+  /ledger/transactions/by-idempotency-key/{key}:
+    get:
+      tags: [Transactions]
+      summary: Get transaction by idempotency key
+      operationId: getTransactionByIdempotencyKey
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+
+components:
+  parameters:
+    AccountId:
+      name: account_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    TransactionId:
+      name: transaction_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+
+  schemas:
+    CreateAccountRequest:
+      type: object
+      required: [account_id, account_type, currency]
+      properties:
+        account_id:
+          type: string
+        account_type:
+          type: string
+          enum: [CUSTOMER, INTERNAL]
+        currency:
+          type: string
+          example: IDR
+
+    Account:
+      type: object
+      properties:
+        account_id:
+          type: string
+        account_type:
+          type: string
+        currency:
+          type: string
+        current_balance:
+          type: integer
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PostTransactionRequest:
+      type: object
+      required: [currency, entries]
+      properties:
+        currency:
+          type: string
+        description:
+          type: string
+        entries:
+          type: array
+          minItems: 2
+          items:
+            $ref: "#/components/schemas/LedgerEntryRequest"
+
+    LedgerEntryRequest:
+      type: object
+      required: [account_id, amount]
+      properties:
+        account_id:
+          type: string
+        amount:
+          type: integer
+          description: >
+            Signed amount. Negative = debit, Positive = credit.
+
+    TransactionResponse:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+        status:
+          type: string
+          example: POSTED
+        posted_at:
+          type: string
+          format: date-time
+
+    AccountBalance:
+      type: object
+      properties:
+        account_id:
+          type: string
+        currency:
+          type: string
+        current_balance:
+          type: integer
+        as_of:
+          type: string
+          format: date-time
+
+    ReversalRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+    Conflict:
+      description: Idempotency or state conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
